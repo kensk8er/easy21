@@ -1,0 +1,9 @@
+code/*.pyc
+code/midi
+.idea
+*.pyc
+*~
+*.swp
+.DS_Store
+
+# project
