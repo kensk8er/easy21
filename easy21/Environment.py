@@ -1,14 +1,12 @@
 import sys
+import random
 
 __author__ = 'kensk8er'
-
-from utils.util import *
-import random
 
 
 def step(state, action):
     """
-    :param state:
+    :param state: State
     :param action: 0 (hit) or 1 (stick)
     :rtype : State next_state, int reward
     """
@@ -19,12 +17,15 @@ def step(state, action):
     assert state.terminal is False, 'terminal is already False!'
 
     def draw_black():
+        """ draw a black (plus) card between 1 and 10 """
         return random.randint(1, 10)
 
     def draw_red():
+        """ draw a red (minus) card between 1 and 10 """
         return -random.randint(1, 10)
 
     def draw_card():
+        """ draw black with probability 2/3, otherwise draw red """
         probability = random.random()
         if probability <= float(2) / 3:
             return draw_black()
@@ -32,6 +33,7 @@ def step(state, action):
             return draw_red()
 
     def check_burst(score):
+        """ check if a user is burst or not """
         if 1 <= score <= 21:
             return False
         else:
@@ -74,25 +76,35 @@ def step(state, action):
     # calculate reward
     if state.terminal is True:
         if player_burst is True:
+            # if a player is burst, the player always loses
             reward = -1
         elif dealer_burst is True:
+            # if a dealer is burst, the player always wins
             reward = 1
         else:
             if state.player > state.dealer:
+                # player wins
                 reward = 1
             elif state.player < state.dealer:
+                # player loses
                 reward = -1
             elif state.player == state.dealer:
+                # draw match
                 reward = 0
             else:
+                # there's something wrong if all the above conditions are not satisfied
                 sys.exit('illegal states')
     else:
+        # return None if a match is not finished yet
         reward = None
 
     return reward
 
 
 class State(object):
+    """
+    State of both player and dealer (only initial state)
+    """
     def __init__(self, dealer=None, player=None):
         if dealer is not None and player is not None:
             self.dealer = dealer
