@@ -47,7 +47,7 @@ if __name__ == '__main__':
                 # assign 0 if the match hasn't finished yet
                 reward = 0
 
-            # update action value function
+            # update the action value function
             action_value_function[(dealer, player, action)] += \
                 (1. / number_state_action[(dealer, player, action)]) \
                 * (reward - action_value_function[(dealer, player, action)])
