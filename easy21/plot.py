@@ -1,3 +1,4 @@
+from logging import exception
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import pylab
@@ -16,6 +17,36 @@ def plot_value_function(value_function, title):
     y = range(1, 22)  # player
     X, Y = np.meshgrid(x, y)
     Z = np.array([[0. for i in range(len(x))] for j in range(len(y))])
+    for i in x:
+        for j in y:
+            Z[j - 1][i - 1] = value_function[(i, j)]
+    fig = pylab.figure()
+    ax = Axes3D(fig)
+    pylab.title(title)
+    ax.set_xlabel("Dealer Showing")
+    pylab.xlim([1, 10])
+    pylab.xticks(range(1, 11))
+    ax.set_ylabel("Player Sum")
+    pylab.ylim([1, 21])
+    pylab.yticks(range(1, 22))
+    ax.plot_surface(X, Y, Z, rstride=1, cstride=1)
+    pylab.show()
+
+
+def plot_linear_value_function(value_function, title):
+    """
+    plot the linear value function
+    :param linear_value_function: dictionary[(features, action)]
+    :param title: str
+    """
+    exception(NotImplementedError)
+    # plot the value function
+    x = range(3)  # dealer features
+    y = range(6)  # player features
+    X, Y = np.meshgrid(x, y)
+    Z = np.array([[0. for i in range(len(x))] for j in range(len(y))])
+    indices = [0 for i in range(6 * 3)]
+
     for i in x:
         for j in y:
             Z[j - 1][i - 1] = value_function[(i, j)]

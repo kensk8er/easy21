@@ -1,11 +1,12 @@
 import pylab
-from easy21.environment import step
-from easy21.plot import plot_value_function
-from easy21.policy import epsilon_greedy
-from easy21.value import ActionValue
+from easy21.environment import step, State
+from easy21.plot import plot_linear_value_function
+from easy21.policy import epsilon_greedy_linear
+from easy21.value import ActionValueLinearApproximation, LinearFunction
 from utils.util import *
 from easy21 import environment
 from collections import defaultdict
+import numpy as np
 
 __author__ = 'kensk8er'
 
@@ -13,6 +14,7 @@ __author__ = 'kensk8er'
 def calculate_mse(subject_function):
     true_result = unpickle('result/MonteCarloControl.pkl')
     true_action_value_function = true_result['action_value']
+    linear_function = LinearFunction()
 
     # calculate the MSE
     MSE = 0
@@ -20,7 +22,11 @@ def calculate_mse(subject_function):
     for dealer in range(1, 11):
         for player in range(1, 22):
             for action in range(0, 2):
-                MSE += (subject_function[(dealer, player, action)] - true_action_value_function[
+                state = State(dealer=dealer, player=player)
+                linear_function.update(state)
+                features = linear_function.get_features()
+
+                MSE += (subject_function[(features, action)] - true_action_value_function[
                     (dealer, player, action)]) ** 2
                 denominator += 1
     MSE /= denominator
@@ -36,13 +42,18 @@ def sarsa(lambda_value, iteration_num):
     print 'lambda:', lambda_value
 
     # define functions (dictionaries)
-    action_value_function = ActionValue(float)
-    number_state = defaultdict(int)
-    number_state_action = defaultdict(int)
+    action_value_function = ActionValueLinearApproximation(float)
+    linear_function = LinearFunction()
+    parameters_hit = np.array([0 for i in range(3 * 6)])
+    parameters_stick = np.array([0 for i in range(3 * 6)])
 
     # define parameters
     batch = 100
     num_zero = 10
+    epsilon = 0.1
+    alpha = 0.01
+    HIT = 0
+    STICK = 1
 
     if lambda_value == 0. or lambda_value == 1.:
         learning_curve = []
@@ -55,55 +66,54 @@ def sarsa(lambda_value, iteration_num):
             if lambda_value == 0. or lambda_value == 1.:
                 learning_curve.append(calculate_mse(action_value_function))
 
-        # initialize state, action, epsilon, and eligibility-trace
+        # initialize state, action, and eligibility-trace
         state = environment.State()
-        current_dealer = state.dealer
-        current_player = state.player
-        epsilon = float(num_zero) / (num_zero + number_state[(current_dealer, current_player)])
-        current_action = epsilon_greedy(action_value_function, state, epsilon)
-        eligibility = defaultdict(int)
+        linear_function.update(state)
+        current_features = linear_function.get_features()
+        action = epsilon_greedy_linear(action_value_function, current_features, epsilon)
+        eligibility_hit = np.array([0 for i in range(3 * 6)])
+        eligibility_stick = np.array([0 for i in range(3 * 6)])
 
         while state.terminal is False:
-            # count state and state_action number
-            number_state[(current_dealer, current_player)] += 1
-            number_state_action[(current_dealer, current_player, current_action)] += 1
+            # update delta, and eligibility-trace
+            if action == HIT:
+                eligibility_hit = np.add(eligibility_hit, np.array(current_features))
+            else:
+                eligibility_stick = np.add(eligibility_stick, np.array(current_features))
 
             # take an action
-            reward = step(state, current_action)
+            reward = step(state, action)
             if reward is None:
                 # assign 0 if the match hasn't finished yet
                 reward = 0
-            new_dealer = state.dealer
-            new_player = state.player
+            linear_function.update(state)
+            new_features = linear_function.get_features()
 
-            # update epsilon
-            epsilon = float(num_zero) / (num_zero + number_state[(new_dealer, new_player)])
+            # update delta
+            delta_hit = reward - np.array(new_features).dot(parameters_hit)
+            delta_stick = reward - np.array(new_features).dot(parameters_stick)
+
+            # update Action Value Function
+            if action == HIT:
+                action_value_function.update_value((new_features, action), parameters_hit)
+            else:
+                action_value_function.update_value((new_features, action), parameters_stick)
+
+            # update delta, parameters, and eligibility-trace
+            if action == HIT:
+                delta_hit += action_value_function[(new_features, HIT)]
+            else:
+                delta_stick += action_value_function[(new_features, STICK)]
+            parameters_hit = np.add(parameters_hit, alpha * delta_hit * eligibility_hit)
+            parameters_stick = np.add(parameters_stick, alpha * delta_stick * eligibility_stick)
+            eligibility_hit = eligibility_hit * lambda_value
+            eligibility_stick = eligibility_stick * lambda_value
 
             # decide an action
-            new_action = epsilon_greedy(action_value_function, state, epsilon)
-
-            # update alpha, delta, and eligibility-trace
-            alpha = 1. / number_state_action[(current_dealer, current_player, current_action)]
-            delta = reward + action_value_function[(new_dealer, new_player, new_action)] \
-                    - action_value_function[(current_dealer, current_player, current_action)]
-            eligibility[(current_dealer, current_player, current_action)] += 1
-
-            # iterate over every state and action
-            # To Be Fixed: this implementation is probably slower than vectorized way
-            for key in action_value_function.keys():
-                dealer, player, action = key
-
-                # update the action value function
-                action_value_function[(dealer, player, action)] \
-                    += alpha * delta * eligibility[(dealer, player, action)]
-
-                # update eligibility-trace
-                eligibility[(dealer, player, action)] *= lambda_value
+            action = epsilon_greedy_linear(action_value_function, new_features, epsilon)
 
             # update state and action
-            current_dealer = new_dealer
-            current_player = new_player
-            current_action = new_action
+            current_features = new_features
 
     print '\repisode:', episode
     print 'done!'
@@ -130,7 +140,7 @@ def sarsa(lambda_value, iteration_num):
     #value_function = action_value_function.to_value_function()
 
     ## plot the optimal value function
-    #plot_value_function(value_function, "Optimal Value Function (Sarsa)")
+    #plot_linear_value_function(action_value_function, "Optimal Value Function (Linear Approximation)")
 
     return MSE
 
