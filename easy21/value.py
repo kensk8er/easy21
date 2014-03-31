@@ -26,6 +26,9 @@ class ActionValue(defaultdict):
         dict.__setitem__(self, (dealer, player, action), value)
 
     def to_value_function(self):
+        """
+        convert Action Value Function into Value Function
+        """
         value_function = Value(float)
         keys = self.keys()
         HIT = 0
@@ -68,19 +71,20 @@ class ActionValueLinearApproximation(ActionValue):
         dict.__setitem__(self, (tuple(features), action), value)
 
     def update_value(self, (features, action), parameters):
-        #assert isinstance(parameters, list), 'parameters must be list'
-        #current_values = self.__getitem__((features, action))
+        """
+        update the Action Value Function by applying the new parameters
+        """
         features = np.array(features)
         new_value = features.dot(parameters)
         features = list(features)
-
-        #for i in range(len(features)):
-            #new_value += features[i] * parameters[i]
 
         self.__setitem__((features, action), new_value)
 
 
 class LinearFunction():
+    """
+    this class convert the State into features used in Linear Function Approximation
+    """
     features = [0 for i in range(3 * 6)]
     feature_template_dealer = [{1, 2, 3, 4}, {4, 5, 6, 7}, {7, 8, 9, 10}]
     feature_template_player = [
@@ -95,6 +99,9 @@ class LinearFunction():
         return self.features
 
     def update(self, state):
+        """
+        update the features based on given State information
+        """
         assert isinstance(state, State), 'first argument must be State'
         dealer = state.dealer
         player = state.player
